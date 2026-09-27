@@ -1,0 +1,31 @@
+// D3 - AI agent used outside business hours
+// Severity:  Low alone; raise to Medium when combined with sensitive channels or PII (see Risk below)
+// Schedule:  every 1h, lookback 1h  |  Entity: Account = UserName
+// Mapping:   ATT&CK T1078 (Valid Accounts) - a stolen Slack session looks exactly like the real user, except WHEN
+//            NIST CSF DE.AE-02
+// Why:       A support team works set hours. Queries at 2-3am asking to summarize an escalation channel are either
+//            someone working late (fine, verify) or a hijacked session using the agent as a fast reader.
+// Tuning:    Set BusinessStart/BusinessEnd/TZ to the team's real schedule; add known night-shift users to Exempt.
+let Lookback = 1h;  // scheduled-rule value. Use 2d to validate the simulated data.
+let TZ = "America/New_York";
+let BusinessStart = 7;
+let BusinessEnd = 20;
+let SensitiveChannels = dynamic(["enrollment-escalations"]);
+let Exempt = dynamic([]);  // e.g. dynamic(["night.shift.lead"])
+ClaudeAudit_CL
+| where TimeGenerated > ago(Lookback)
+| where UserName !in (Exempt)
+| extend LocalTime = datetime_utc_to_local(TimeGenerated, TZ)
+| extend LocalHour = hourofday(LocalTime), Weekend = dayofweek(LocalTime) in (0d, 6d)
+| where LocalHour < BusinessStart or LocalHour >= BusinessEnd or Weekend
+| summarize
+    Queries   = count(),
+    FirstLocal = min(LocalTime),
+    LastLocal  = max(LocalTime),
+    Channels  = make_set(ChannelName),
+    AnyPii    = max(toint(PiiDetected)),
+    Samples   = make_list(QueryText, 3)
+    by UserName, UserId
+| extend TouchedSensitive = array_length(set_intersect(Channels, SensitiveChannels)) > 0
+| extend Severity = iff(TouchedSensitive or AnyPii == 1, "Medium", "Low")
+| project-reorder Severity, UserName, Queries, FirstLocal, Channels

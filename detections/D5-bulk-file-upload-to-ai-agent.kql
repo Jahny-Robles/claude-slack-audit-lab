@@ -1,0 +1,26 @@
+// D5 - Bulk data files handed to the AI agent
+// Severity:  Medium (High if the files are spreadsheets/CSVs - the shape member exports come in)
+// Schedule:  every 1h, lookback 1h  |  Entity: Account = UserName
+// Mapping:   ATT&CK T1567 (Exfiltration Over Web Service), T1074 (Data Staged)
+//            NIST CSF PR.DS-01, DE.CM-03
+// Why:       Attaching a PDF to ask a question is normal. A dozen xlsx/csv files in an hour means someone is
+//            pushing tabular data - very possibly member lists - through a third-party AI service.
+// Triage:    1) File names in the Slack thread  2) Did the prompts mention members/exports?
+//            3) Is this a sanctioned workflow (e.g. ops report cleanup) that needs a DLP-approved tool instead?
+let Lookback = 1h;  // scheduled-rule value. Use 2d to validate the simulated data.
+let FileThreshold = 8;
+let DataFileTypes = dynamic(["csv", "xlsx", "xls", "tsv", "json", "sql"]);
+ClaudeAudit_CL
+| where TimeGenerated > ago(Lookback)
+| where AttachmentCount > 0
+| mv-expand FileType = AttachmentTypes to typeof(string)
+| summarize
+    Files         = sum(AttachmentCount),
+    DataFiles     = countif(FileType in (DataFileTypes)),
+    FileTypes     = make_set(FileType),
+    Channels      = make_set(ChannelName),
+    Samples       = make_list(QueryText, 3)
+    by UserName, UserId, Window = bin(TimeGenerated, 1h)
+| where Files >= FileThreshold
+| extend Severity = iff(DataFiles * 2 >= Files, "High", "Medium")
+| project-reorder Severity, UserName, Files, DataFiles, FileTypes

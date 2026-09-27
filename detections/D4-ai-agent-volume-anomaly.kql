@@ -1,0 +1,38 @@
+// D4 - Abnormal query / token volume from one user (agent used as a bulk reader)
+// Severity:  Medium
+// Schedule:  every 30m, lookback 30m  |  Entity: Account = UserName
+// Mapping:   ATT&CK T1119 (Automated Collection), T1213 (Data from Information Repositories)
+//            NIST CSF DE.AE-03
+// Why:       Normal agents ask a handful of questions an hour. 50+ "summarize ticket N" calls in half an hour, with
+//            heavy input tokens, is someone (or a script with their token) pulling everything the agent can read.
+// Tuning:    Static thresholds are a starting point. Once you have 14+ days of data, switch to the per-user
+//            baseline version at the bottom (commented out).
+let Lookback = 30m;  // scheduled-rule value. Use 2d to validate the simulated data.
+let QueryThreshold = 20;
+let TokenThreshold = 150000;
+ClaudeAudit_CL
+| where TimeGenerated > ago(Lookback)
+| where Outcome == "Success"
+| summarize
+    Queries     = count(),
+    TotalTokens = sum(InputTokens + OutputTokens),
+    Channels    = make_set(ChannelName),
+    Samples     = make_list(QueryText, 5),
+    FirstSeen   = min(TimeGenerated),
+    LastSeen    = max(TimeGenerated)
+    by UserName, UserId, Window = bin(TimeGenerated, 30m)
+| where Queries >= QueryThreshold or TotalTokens >= TokenThreshold
+| extend QueriesPerMin = round(Queries / max_of(1.0, datetime_diff("minute", LastSeen, FirstSeen) * 1.0), 2)
+| project-reorder UserName, Queries, TotalTokens, QueriesPerMin, Channels
+//
+// ---- per-user baseline version (use once you have history) ----
+// let lookback = 14d;
+// let baseline = ClaudeAudit_CL
+//     | where TimeGenerated between (ago(lookback) .. ago(1h))
+//     | summarize hourly = count() by UserName, bin(TimeGenerated, 1h)
+//     | summarize AvgHourly = avg(hourly), StdHourly = stdev(hourly) by UserName;
+// ClaudeAudit_CL
+// | where TimeGenerated > ago(1h)
+// | summarize LastHour = count() by UserName
+// | join kind=leftouter baseline on UserName
+// | where LastHour > coalesce(AvgHourly, 0) + 3 * coalesce(StdHourly, 2) and LastHour >= 10

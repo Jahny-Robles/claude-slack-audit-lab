@@ -1,0 +1,31 @@
+// D6 - DLP block followed by a successful, reworded retry (control evasion)
+// Severity:  High
+// Schedule:  every 15m, lookback 1h  |  Entity: Account = UserName
+// Mapping:   ATT&CK T1027 (Obfuscated Files or Information) applied to prompts; MITRE ATLAS AML.T0054 (LLM Jailbreak)
+//            NIST CSF DE.AE-02, PR.AT-01 (awareness & training)
+// Why:       The bot blocked a prompt for PHI. Minutes later the SAME user sends a near-identical prompt that
+//            sails through - e.g. "HS-7730412" typed as "H S 7 7 3 0 4 1 2". The block worked; the person
+//            deliberately got around it. This is the single most useful AI-DLP detection because it catches
+//            intent, not accident.
+// How:       Pair each Blocked event with Successful events by the same user within 10 min, then require the two
+//            prompts to share 2+ meaningful words (6+ letters) so unrelated follow-up questions don't match.
+let Lookback = 1h;  // scheduled-rule value. Use 2d to validate the simulated data.
+let RetryWindow = 10m;
+let Blocked = ClaudeAudit_CL
+    | where TimeGenerated > ago(Lookback)
+    | where PolicyAction == "Blocked"
+    | project UserName, UserId, BlockedTime = TimeGenerated, BlockedQuery = QueryText,
+              BlockedFor = iff(PhiLikely, "PHI", strcat_array(InjectionPatterns, ","));
+ClaudeAudit_CL
+| where TimeGenerated > ago(Lookback)
+| where Outcome == "Success"
+| project UserName, RetryTime = TimeGenerated, RetryQuery = QueryText, RetryChannel = ChannelName
+| join kind=inner Blocked on UserName
+| where RetryTime between (BlockedTime .. BlockedTime + RetryWindow)
+| extend SharedWords = set_intersect(
+      extract_all(@"([a-z]{6,})", tolower(BlockedQuery)),
+      extract_all(@"([a-z]{6,})", tolower(RetryQuery)))
+| where array_length(SharedWords) >= 2
+| extend SecondsToRetry = datetime_diff("second", RetryTime, BlockedTime)
+| project UserName, UserId, BlockedFor, BlockedTime, BlockedQuery, RetryTime, RetryQuery,
+          SecondsToRetry, SharedWords, RetryChannel
