@@ -1,0 +1,25 @@
+{
+  "_note": "ALL people, members and identifiers below are fictional. Phone numbers use the reserved 555-01xx range. Company name is a made-up lab org.",
+  "channel": "agent-support-training",
+  "personas": {
+    "Dana Whitfield (Trainer)": ":teacher:",
+    "Marcus Lee": ":bust_in_silhouette:",
+    "Priya Raman": ":bust_in_silhouette:",
+    "Tasha Greene (Asst. Support Mgr)": ":star:",
+    "Omar Castillo": ":bust_in_silhouette:"
+  },
+  "messages": [
+    { "from": "Dana Whitfield (Trainer)", "text": "Good morning cohort! Today: Special Enrollment Periods (SEPs) and how to explain APTC to callers. Slides are pinned." },
+    { "from": "Marcus Lee", "text": "Quick q - is losing employer coverage a qualifying life event even if the person quit voluntarily?" },
+    { "from": "Dana Whitfield (Trainer)", "text": "Yes. Loss of minimum essential coverage qualifies regardless of why the job ended. They generally have 60 days from the loss to enroll." },
+    { "from": "Priya Raman", "text": "What's the easiest way to explain APTC to someone who's never heard of it?" },
+    { "from": "Tasha Greene (Asst. Support Mgr)", "text": "I say: it's a tax credit paid in advance straight to your insurer every month, so your premium bill is lower now instead of waiting for your tax refund." },
+    { "from": "Omar Castillo", "text": "Caller today asked why her plan changed from Silver to Bronze after auto-renew. I escalated but not sure that was right." },
+    { "from": "Tasha Greene (Asst. Support Mgr)", "text": "Good instinct. Plan crosswalk on auto-renew can map to a different metal level if the old plan was discontinued. Check the renewal notice first, then escalate if it doesn't match." },
+    { "from": "Marcus Lee", "text": "Heads up I had a caller member ID HS-5520931 DOB 02/17/1979 asking whether her insulin is covered on the new plan, where do I send that?", "_lab_purpose": "Realistic mistake: agent pastes PHI into a shared channel. Good for showing the DLP scanner." },
+    { "from": "Dana Whitfield (Trainer)", "text": "Reminder: please don't post member identifiers in channel - use the ticket number only. Formulary questions go to the carrier's pharmacy line." },
+    { "from": "Priya Raman", "text": "Is the income verification DMI due in 90 days or 95?" },
+    { "from": "Dana Whitfield (Trainer)", "text": "90 days from the notice for income data matching issues. Always check the date on the consumer's notice though." },
+    { "from": "Omar Castillo", "text": "Shared the updated SEP cheat sheet in the drive. Let me know if anything's off." }
+  ]
+}

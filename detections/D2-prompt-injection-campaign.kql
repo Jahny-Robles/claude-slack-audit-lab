@@ -1,0 +1,29 @@
+// D2 - Prompt-injection campaign against the AI agent
+// Severity:  High for 3+ attempts in 15 min, Low for a single hit (people paste weird stuff)
+// Schedule:  every 15m, lookback 1h  |  Entity: Account = UserName
+// Mapping:   MITRE ATLAS AML.T0051 (LLM Prompt Injection), AML.T0056 (LLM Meta Prompt Extraction)
+//            OWASP LLM01 Prompt Injection  |  NIST CSF DE.AE-02
+// Why:       One odd message is noise. Several different injection techniques from one account in minutes
+//            is someone probing the agent to leak its instructions or the channel data it can read.
+// Triage:    1) Account type - employee, contractor, guest?  2) Techniques used (InjectionPatterns)
+//            3) Did ANY attempt succeed (Outcome == "Success")? If so, read the bot's reply in the thread.
+//            4) Decoded any ENCODED_PAYLOAD? (base64_decode_tostring on the QueryText)
+let Lookback = 1h;  // scheduled-rule value. Use 2d to validate the simulated data.
+ClaudeAudit_CL
+| where TimeGenerated > ago(Lookback)
+| where InjectionSuspected == true
+| summarize
+    Attempts   = count(),
+    Techniques = make_set(InjectionPatterns),
+    Succeeded  = countif(Outcome == "Success"),
+    Blocked    = countif(PolicyAction == "Blocked"),
+    Channels   = make_set(ChannelName),
+    Samples    = make_list(QueryText, 5),
+    FirstSeen  = min(TimeGenerated),
+    LastSeen   = max(TimeGenerated)
+    by UserName, UserId, Window = bin(TimeGenerated, 15m)
+| extend DistinctTechniques = array_length(Techniques)
+| extend Severity = case(Attempts >= 3 or DistinctTechniques >= 2, "High",
+                         Succeeded > 0, "Medium",
+                         "Low")
+| project-reorder Severity, UserName, Attempts, DistinctTechniques, Succeeded, Blocked, Techniques

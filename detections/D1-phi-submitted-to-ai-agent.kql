@@ -1,0 +1,24 @@
+// D1 - PHI submitted to the AI agent
+// Severity:  Medium (High when the same user does it 3+ times in the window)
+// Schedule:  every 1h, lookback 1h   |  Entity: Account = UserName
+// Mapping:   MITRE ATT&CK T1567 (Exfiltration Over Web Service) - data leaves the org boundary to a 3rd-party AI API
+//            HIPAA 164.312(b) audit controls  |  NIST CSF DE.CM-03, PR.DS-01
+// Why:       An identifier + clinical term in the same prompt is PHI. Even when the bot redacts or blocks it,
+//            the person still pasted PHI into a shared tool - that's a training/policy issue someone needs to own.
+// Triage:    1) Was it blocked/redacted (PolicyAction)?  2) Which identifier types?  3) First time for this user
+//            or a pattern?  4) Did they post the same data in the channel itself (check the Slack thread)?
+let Lookback = 1h;  // scheduled-rule value. Use 2d to validate the simulated data.
+ClaudeAudit_CL
+| where TimeGenerated > ago(Lookback)
+| where PhiLikely == true
+| summarize
+    Occurrences   = count(),
+    FirstSeen     = min(TimeGenerated),
+    LastSeen      = max(TimeGenerated),
+    IdentifierTypes = make_set(PiiTypes),
+    Channels      = make_set(ChannelName),
+    Actions       = make_set(PolicyAction),
+    SampleQueries = make_list(QueryText, 3)
+    by UserName, UserId
+| extend Severity = iff(Occurrences >= 3, "High", "Medium")
+| project-reorder Severity, UserName, Occurrences, IdentifierTypes, Actions

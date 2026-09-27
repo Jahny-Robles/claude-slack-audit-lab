@@ -1,0 +1,13 @@
+# secrets - precise patterns only (broad wildcards like *secret* silently swallow detection content)
+.env
+*.env.local
+
+# local audit output (may contain redacted-but-real lab prompts)
+audit_events.jsonl
+*.uploaded.jsonl
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/

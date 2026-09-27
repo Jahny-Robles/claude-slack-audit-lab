@@ -1,0 +1,6 @@
+slack-bolt>=1.21
+slack-sdk>=3.33
+anthropic>=0.60
+python-dotenv>=1.0
+azure-identity>=1.19
+azure-monitor-ingestion>=1.0.4
