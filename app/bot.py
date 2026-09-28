@@ -51,22 +51,30 @@ MENTION = re.compile(r"<@[A-Z0-9]+>")
 
 
 def _user_name(client, user_id: str) -> str:
-    if user_id not in _name_cache:
-        try:
-            _name_cache[user_id] = client.users_info(user=user_id)["user"]["name"]
-        except Exception:
-            _name_cache[user_id] = user_id
-    return _name_cache[user_id]
+    # Only successful lookups are cached. Caching the fallback would pin a raw ID into
+    # every later audit event after one transient failure (e.g. a scope not yet propagated).
+    if user_id in _name_cache:
+        return _name_cache[user_id]
+    try:
+        name = client.users_info(user=user_id)["user"]["name"]
+    except Exception as exc:
+        log.warning("Could not resolve user %s (will retry next event): %s", user_id, exc)
+        return user_id
+    _name_cache[user_id] = name
+    return name
 
 
 def _channel_name(client, channel_id: str) -> str:
     key = f"c:{channel_id}"
-    if key not in _name_cache:
-        try:
-            _name_cache[key] = client.conversations_info(channel=channel_id)["channel"]["name"]
-        except Exception:
-            _name_cache[key] = channel_id
-    return _name_cache[key]
+    if key in _name_cache:
+        return _name_cache[key]
+    try:
+        name = client.conversations_info(channel=channel_id)["channel"]["name"]
+    except Exception as exc:
+        log.warning("Could not resolve channel %s (will retry next event): %s", channel_id, exc)
+        return channel_id
+    _name_cache[key] = name
+    return name
 
 
 def _channel_context(client, channel_id: str, exclude_ts: str) -> str:
