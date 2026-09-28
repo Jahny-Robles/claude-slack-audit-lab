@@ -13,3 +13,6 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+
+# DCR payload debug dumps (contain subscription/workspace resource IDs)
+infra/dcr-body*.json

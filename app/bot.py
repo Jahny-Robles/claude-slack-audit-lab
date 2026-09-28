@@ -28,6 +28,9 @@ from pii_scanner import redact, scan
 load_dotenv()
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("bot")
+# The Azure SDK logs every HTTP request/response block at INFO; keep our own lines readable.
+for noisy in ("azure", "httpx", "httpcore"):
+    logging.getLogger(noisy).setLevel(logging.WARNING)
 
 MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-5")
 POLICY_MODE = os.getenv("POLICY_MODE", "redact").lower()  # monitor | redact | block
