@@ -84,14 +84,28 @@ python sample-output\validate_detections.py     # all 6 detections should fire o
 ### 3. Claude API
 Create a key at console.anthropic.com → `ANTHROPIC_API_KEY` in `.env`. Each lab query costs fractions of a cent.
 
-### 4. Sentinel (Jahny Labs tenant)
+### 4. Sentinel
+Use a **new** PowerShell window (a window opened before the Azure CLI was installed can't find `az`).
 ```powershell
-az login --tenant JahnyLabs.onmicrosoft.com
+az login --use-device-code        # complete the MFA prompt - Azure blocks resource writes without it
 # edit $ResourceGroup / $Workspace at the top of the script if yours differ
 powershell -ExecutionPolicy Bypass -File .\infra\setup-sentinel-ingestion.ps1
+powershell -ExecutionPolicy Bypass -File .\infra\write-env-from-azure.ps1
 ```
-Paste the five printed values into `.env`. The role assignment can take a few minutes to propagate.
-Until it does, uploads return 403 but the events are still saved locally.
+The first script creates the table, the Data Collection Rule and a role assignment scoped to that one rule.
+The second reads the endpoint and rule ID back out of Azure and writes them into `.env`, so nothing is copied by hand.
+
+**Identity.** If your directory allows app registration, the script creates a service principal and the bot uses its
+client secret. If it doesn't (common in university or managed tenants), the script grants the role to your signed-in
+user instead and the bot authenticates through your `az login` session. Leave `AZURE_CLIENT_SECRET` empty in that case.
+A service principal or managed identity is the right choice for anything unattended.
+
+Role assignments can take a few minutes to propagate. Until then uploads return 403, but events are still saved locally.
+
+Check what actually exists in Azure (as opposed to what a script reported) with:
+```powershell
+powershell -ExecutionPolicy Bypass -File .\infra\check-azure-setup.ps1
+```
 
 ### 5. Run it
 ```powershell
@@ -142,10 +156,28 @@ No baseline user triggers any rule.
 
 ---
 
+## Problems hit while building the pipeline
+Each of these failed silently or misleadingly, which is why the setup script now checks every step.
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Setup script printed a success banner but created nothing | `$ErrorActionPreference = "Stop"` does not stop on failures from native commands like `az` in Windows PowerShell 5.1 | Every `az` call goes through a wrapper that checks `$LASTEXITCODE` and throws |
+| `RequestDisallowedByAzure` on table creation | Azure requires MFA for create/update/delete; reads worked, writes were rejected | `az login --use-device-code` and complete MFA |
+| Table API rejected the schema the DCR API accepts | The table API spells the type `dateTime`, the DCR API spells it `datetime` | Translate the type only when creating the table |
+| DCR create returned "Resource payload is missing or invalid" | `ConvertTo-Json` turns an array read from JSON into `{"value":[...],"Count":N}` | Rebuild the columns as a plain array; refuse to send a body containing `"Count"` |
+| `Insufficient privileges` creating a service principal | The tenant blocks app registration for non-admins | Fall back to a role assignment for the signed-in user plus `AzureCliCredential` |
+| Bot replied in Slack but nothing reached Sentinel | Four stale copies of `bot.py` were connected to the same Slack app, and events were split between them | Stop all `python.exe` processes running `bot.py`, then start one |
+| Audit log recorded a raw channel ID instead of the name | A failed lookup was cached permanently | Only cache successful lookups |
+| A stray `.env.txt` containing a live token appeared | Notepad's Save As appended `.txt` | Ctrl+S only; `.gitignore` now covers `.env.*` |
+
+The common thread: a control plane can report success while nothing works. Configuration state is not operational state.
+
 ## Known limits (write these up, they're part of the finding)
 - Regex DLP is easy to evade (D6 exists because of this). Production would pair it with Microsoft Purview or a vendor DLP.
 - The scanner only reads message text, not attachment contents.
 - Channel history is sent to the model as context (redacted). A real deployment needs a documented decision on which channels the agent can read.
+- Ingestion runs on a personal `az login` session when the tenant blocks service principals. That ties log shipping to one person's sign-in and it stops when the session expires.
+- D3 treats weekends as out of hours. Run the simulator on a Monday and the D4 burst lands on Sunday, so D3 flags that user too. It is correct by the rule's logic, and worth correlating with D4 in a real SOC.
 - This is a **self-built** agent. It reproduces the audit/detection problem, not Claude Tag's actual internals or log format.
 
 ## Next steps
