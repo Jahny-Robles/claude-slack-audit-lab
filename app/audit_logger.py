@@ -73,16 +73,25 @@ class AuditLogger:
 
         if endpoint and self.rule_id:
             try:
-                from azure.identity import ClientSecretCredential
+                from azure.identity import AzureCliCredential, ClientSecretCredential
                 from azure.monitor.ingestion import LogsIngestionClient
 
-                credential = ClientSecretCredential(
-                    tenant_id=os.environ["AZURE_TENANT_ID"],
-                    client_id=os.environ["AZURE_CLIENT_ID"],
-                    client_secret=os.environ["AZURE_CLIENT_SECRET"],
-                )
+                tenant = os.getenv("AZURE_TENANT_ID") or None
+                if os.getenv("AZURE_CLIENT_SECRET"):
+                    # preferred: dedicated service principal, role scoped to the DCR only
+                    credential = ClientSecretCredential(
+                        tenant_id=os.environ["AZURE_TENANT_ID"],
+                        client_id=os.environ["AZURE_CLIENT_ID"],
+                        client_secret=os.environ["AZURE_CLIENT_SECRET"],
+                    )
+                    how = "service principal"
+                else:
+                    # fallback for tenants that forbid app registration: reuse the
+                    # signed-in `az login` session (role granted to that user on the DCR)
+                    credential = AzureCliCredential(tenant_id=tenant)
+                    how = "Azure CLI session"
                 self.client = LogsIngestionClient(endpoint=endpoint, credential=credential)
-                log.info("Sentinel shipping enabled -> %s", endpoint)
+                log.info("Sentinel shipping enabled (%s) -> %s", how, endpoint)
             except Exception as exc:  # keep the bot alive even if Azure config is wrong
                 log.error("Sentinel shipping disabled, falling back to local file only: %s", exc)
         else:
