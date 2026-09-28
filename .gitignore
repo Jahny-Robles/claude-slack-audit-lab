@@ -1,5 +1,7 @@
 # secrets - precise patterns only (broad wildcards like *secret* silently swallow detection content)
 .env
+.env.*
+!.env.example
 *.env.local
 
 # local audit output (may contain redacted-but-real lab prompts)
