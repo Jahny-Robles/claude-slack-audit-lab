@@ -156,6 +156,58 @@ No baseline user triggers any rule.
 
 ---
 
+## Proof it works
+
+Full captioned set: [`screenshots/`](screenshots/README.md). Highlights:
+
+**1. The bot catches PHI and injection before the model sees them**
+
+| Redact mode: identifiers stripped, user told | Injection attempt refused |
+|---|---|
+| ![PHI redacted](screenshots/02-dlp-phi-redacted.png) | ![Injection refused](screenshots/03-dlp-injection-refused.png) |
+
+**2. Events reach Sentinel.** HTTP 204 from the Logs Ingestion API, then `ClaudeAudit_CL` holds 115 events from 10 users.
+
+![Shipped to Sentinel](screenshots/05-bot-shipped-to-sentinel.png)
+
+**3. Each detection fires on its planted user** (simulated baseline + attacks, run in Sentinel Logs):
+
+| D1 PHI submitted | D2 Prompt injection |
+|---|---|
+| ![D1](screenshots/07-D1-phi-submitted.png) | ![D2](screenshots/08-D2-prompt-injection.png) |
+| **D3 After hours** | **D4 Volume anomaly** |
+| ![D3](screenshots/09-D3-after-hours.png) | ![D4](screenshots/10-D4-volume-anomaly.png) |
+| **D5 Bulk files** | **D6 Block then evasion** |
+| ![D5](screenshots/11-D5-bulk-files.png) | ![D6](screenshots/12-D6-block-then-evasion.png) |
+
+### Live end-to-end test of D6 (real Slack messages, not simulated)
+
+With `POLICY_MODE=block` I posted a message containing a member ID and a diagnosis, waited about two minutes,
+then posted the same content with the ID spaced out.
+
+| 1. Blocked | 2. Reworded retry goes through |
+|---|---|
+| ![Blocked](screenshots/14-live-block-slack.png) | ![Retry answered](screenshots/15-live-retry-answered.png) |
+
+About 20 minutes later the scheduled rule (every 15 min, 1 h lookback) opened **Incident 82**, High severity,
+Defense Evasion, entity mapped to the account:
+
+![Incident queue](screenshots/17-D6-incident-queue.png)
+
+![Evidence: blocked message, retry, shared words](screenshots/20-D6-incident-evidence-logs.png)
+
+Chain verified: Slack message, DLP block, reworded retry, audit event in `ClaudeAudit_CL`, analytics rule, incident.
+
+**The first live attempt failed, and that is worth keeping.** No incident appeared. The bot log showed
+`Azure CLI not found on path`: I had started the bot from an Administrator shell whose PATH does not include `az`,
+so both events were written to the local file and never shipped
+([screenshot](screenshots/16-shipping-failure-az-not-on-path.png)). The bot still answered in Slack, so nothing looked broken.
+Fix: run from a normal shell, confirm the startup line says `Sentinel shipping enabled`, and treat a missing
+"Shipped N event(s)" line as an outage. The real-world version of this is a SIEM gap: the control keeps working
+while the telemetry that proves it silently stops. A heartbeat detection on `ClaudeAudit_CL` volume would catch it.
+
+---
+
 ## Problems hit while building the pipeline
 Each of these failed silently or misleadingly, which is why the setup script now checks every step.
 
@@ -166,9 +218,10 @@ Each of these failed silently or misleadingly, which is why the setup script now
 | Table API rejected the schema the DCR API accepts | The table API spells the type `dateTime`, the DCR API spells it `datetime` | Translate the type only when creating the table |
 | DCR create returned "Resource payload is missing or invalid" | `ConvertTo-Json` turns an array read from JSON into `{"value":[...],"Count":N}` | Rebuild the columns as a plain array; refuse to send a body containing `"Count"` |
 | `Insufficient privileges` creating a service principal | The tenant blocks app registration for non-admins | Fall back to a role assignment for the signed-in user plus `AzureCliCredential` |
-| Bot replied in Slack but nothing reached Sentinel | Four stale copies of `bot.py` were connected to the same Slack app, and events were split between them | Stop all `python.exe` processes running `bot.py`, then start one |
+| Bot replied in Slack but nothing reached Sentinel | Two copies of `bot.py` were connected to the same Slack app, and events were split between them. Each bot shows as two `python.exe` processes because the venv launcher starts a child | Stop every `python.exe` whose command line contains `bot.py`, then start one |
 | Audit log recorded a raw channel ID instead of the name | A failed lookup was cached permanently | Only cache successful lookups |
 | A stray `.env.txt` containing a live token appeared | Notepad's Save As appended `.txt` | Ctrl+S only; `.gitignore` now covers `.env.*` |
+| Live D6 test produced no incident | Bot was started from an Administrator shell with no `az` on PATH: `Azure CLI not found on path`, events stayed local | Start the bot from a normal shell and check for `Sentinel shipping enabled` and `Shipped N event(s)` ([screenshot](screenshots/16-shipping-failure-az-not-on-path.png)) |
 
 The common thread: a control plane can report success while nothing works. Configuration state is not operational state.
 
@@ -182,5 +235,6 @@ The common thread: a control plane can report success while nothing works. Confi
 
 ## Next steps
 - [ ] Sentinel workbook: queries per user/day, % redacted, blocks by reason
+- [ ] Ingestion heartbeat rule: alert when `ClaudeAudit_CL` goes quiet during business hours (would have caught the failed live test)
 - [ ] Playbook (Logic App): D6 fires → post a warning into the Slack thread + open an incident
 - [ ] Write-up: DETECT → RESPOND → RECOVER → IMPROVEMENT, mapped to NIST CSF 2.0
