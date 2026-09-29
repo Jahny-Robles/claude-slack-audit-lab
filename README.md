@@ -154,6 +154,21 @@ D6 Block->evade        marcus.lee         retry 120s later
 ```
 No baseline user triggers any rule.
 
+All six run as **scheduled analytics rules** in Microsoft Sentinel (incidents enabled, `UserName` mapped to the Account entity):
+
+![Six active analytics rules](screenshots/21-six-active-rules.png)
+
+| Rule | Severity | Runs every | Lookback |
+|---|---|---|---|
+| D1 PHI submitted | Medium | 1 h | 1 h |
+| D2 Prompt-injection campaign | High | 15 min | 1 h |
+| D3 After-hours use | Low | 1 h | 1 h |
+| D4 Volume anomaly | Medium | 30 min | 30 min |
+| D5 Bulk data files | Medium | 1 h | 1 h |
+| D6 Block then evasion | High | 15 min | 1 h |
+
+Single-line versions of D1-D5 for pasting into the rule editor: [`detections/single-line-queries.txt`](detections/single-line-queries.txt).
+
 ---
 
 ## Proof it works
@@ -179,6 +194,19 @@ Full captioned set: [`screenshots/`](screenshots/README.md). Highlights:
 | ![D3](screenshots/09-D3-after-hours.png) | ![D4](screenshots/10-D4-volume-anomaly.png) |
 | **D5 Bulk files** | **D6 Block then evasion** |
 | ![D5](screenshots/11-D5-bulk-files.png) | ![D6](screenshots/12-D6-block-then-evasion.png) |
+
+### Build and setup evidence
+
+Offline first, then Slack, then Azure. Everything below is in [`screenshots/`](screenshots/README.md):
+
+| Step | Screenshot |
+|---|---|
+| Scanner tested with no Slack or Azure | [22](screenshots/22-offline-scanner-test.png) |
+| All six detections validated on simulated data | [23](screenshots/23-offline-detection-validation.png) |
+| Slack manifest error, then fixed | [24](screenshots/24-slack-manifest-error.png), [25](screenshots/25-slack-manifest-fixed.png) |
+| Socket Mode enabled, bot added to the channel | [26](screenshots/26-socket-mode-enabled.png), [27](screenshots/27-bot-added-to-channel.png) |
+| Channel seeded with fictional chatter | [28](screenshots/28-seed-channel-output.png) |
+| Bot sees public channels only (documented limit) | [29](screenshots/29-scope-limit-missing-scope.png) |
 
 ### Live end-to-end test of D6 (real Slack messages, not simulated)
 
