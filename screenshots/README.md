@@ -1,6 +1,6 @@
 # Screenshots: evidence from the build session
 
-All captured on 2026-09-28 during the build and live test. Everything in them is fictional or lab data.
+Captured between 2026-09-27 and 2026-10-07 during the build and the live tests (A-E: bot, detections, setup; F-I: dashboard, heartbeat, cost control, playbook). Everything in them is fictional or lab data.
 Account identifiers and API keys are not shown. Azure portal header bars are cropped out.
 
 ## A. The bot and the DLP scanner (Slack)
@@ -59,3 +59,67 @@ telemetry silently stops, so ingestion needs its own health check.
 | 27 | `27-bot-added-to-channel.png` | The Claude app added to `#agent-support-training`. |
 | 28 | `28-seed-channel-output.png` | `seed_channel.py` posting 12 fictional training messages as personas. One contains a planted member ID and DOB. |
 | 29 | `29-scope-limit-missing-scope.png` | `list_channels.py` shows the bot sees only public channels. Private channels would need `groups:read` and `groups:history` and a reinstall. This is a design limit worth documenting. |
+
+## F. Dashboard (Sentinel workbook)
+
+| # | Screenshot | What it proves |
+|---|---|---|
+| 32 | `32-audit-workbook.png` | The "Claude Slack Audit Overview" workbook, top half: queries per user per day, policy outcomes (117 events: 106 allowed, 11 blocked) and the share blocked (9.4%). Source: `workbook/claude-slack-audit-overview.workbook.json`. |
+| 33 | `33-audit-workbook-lower.png` | Bottom half: blocks by reason (prompt injection 6, PHI 5) and identifier types seen (MEMBER_ID 4, DOB 1, PHONE 1, SSN 1). Redacted is 0% because the simulator only emits Allowed/Blocked. |
+| 41 | `41-workbook-default-event-volume.png` | Sentinel's *default* workbook for the workspace showing 2.69 M `Event` rows. Not this lab's data: it is the Windows event volume from another lab, and it was the first hint of where the ingestion cost was coming from (see H). |
+
+## G. Ingestion heartbeat (H1)
+
+Added because of screenshot 16: the bot looked healthy while shipping nothing, and no detection can fire on data that never arrives.
+
+| # | Screenshot | What it proves |
+|---|---|---|
+| 30 | `30-heartbeat-query-fires.png` | The H1 query run in Logs. `EventsInWindow = 0` for the last 2 hours, and the row only returns because it is a weekday inside 09:00-18:00 Eastern. (`Now` is shown in UTC, `LocalNow` is the Eastern conversion the query does itself.) |
+| 31 | `31-heartbeat-rule-review.png` | The rule's review page: every 30 minutes, 2 hour lookback, with the description explaining why it exists. |
+| 39 | `39-heartbeat-incidents.png` | Sentinel incidents 99-102, all `H1 - Ingestion heartbeat (no events ...)`, Medium. The rule opened incidents while the bot was not shipping events, which is what it is for. |
+| 40 | `40-twelve-active-rules.png` | The Analytics page: 12 active rules. H1 and D1-D6 belong to this lab; the A2-A5 and "Advanced Multistage" rows belong to a separate Windows SOC lab in the same workspace. |
+
+## H. Cost control
+
+Context: the Azure for Students credit dropped to $20.52. Instead of guessing, I traced it.
+
+| # | Screenshot | What it proves |
+|---|---|---|
+| 42 | `42-azure-credits-remaining.png` | $20.52 remaining, $79.48 used of the $100 credit. |
+| 43 | `43-cost-by-service.png` | Cost by service, Jul-Sep: $77.46 total, **Sentinel $77.30**, Azure Monitor $0.17. Sentinel bills per GB ingested. |
+| 44 | `44-usage-by-table-45d.png` | Usage by table over 45 days: `Event` 6.97 GB, `SecurityEvent` 4.35 GB, `ClaudeAudit_CL` about 0 GB. The spend was another lab's Windows logs, not the Slack audit pipeline. |
+| 45 | `45-budget-credit-guard.png` | Budget `credit-guard` at **subscription** scope: $10/month with alerts at 50%, 80% and forecast 100%. (Subscription ID and email are blurred. My first attempt was at billing-account scope, which is the wrong level for a student subscription.) |
+| 46 | `46-daily-cap.png` | Workspace daily cap ON at 0.1 GB/day. Trade-off: when it is reached the workspace stops ingesting for the day, including `ClaudeAudit_CL`. |
+
+## I. Automated response: Logic App playbook
+
+### I.1 Build
+
+| # | Screenshot | What it proves |
+|---|---|---|
+| 47 | `47-playbook-hosting-plan.png` | **A near miss kept on purpose.** The create form has "Workflow Service Plan" (Standard) selected, a fixed monthly cost. The right choice for a lab is Consumption (pay per run). |
+| 48 | `48-playbook-create-settings.png` | The Logic App create form with the correct settings: Consumption, resource group `jahnylabs-siem`, East US 2. |
+| 49 | `49-playbook-sentinel-connection.png` | Creating the Sentinel connection with a **managed identity**, so no password, key or token is stored. |
+| 50 | `50-playbook-designer-slack.png` | Designer with the Slack **Post message (V2)** block, connected to the Slack workspace, message built from dynamic-content chips (incident title, severity, URL). |
+| 51 | `51-playbook-designer-three-actions.png` | The full flow: Sentinel incident trigger, Slack post, **Add comment to incident (V3)**. |
+| 52 | `52-playbook-saved-overview.png` | Overview after saving: 1 trigger, 2 actions. The first attempt showed 0 and 0 because nothing had been saved. |
+| 53 | `53-playbook-iam-role.png` | Least privilege: the Logic App's managed identity gets **Microsoft Sentinel Responder** on the resource group, only enough to add comments to incidents. |
+| 54 | `54-playbook-automation-rule.png` | Automation rule `D6 - Slack warning`: when an incident is created, if provider is Microsoft Sentinel and the analytic rule name contains "D6 - DLP block followed...", run playbook `pb-d6-slack-warning`. |
+
+### I.2 Live test
+
+| # | Screenshot | What it proves |
+|---|---|---|
+| 55 | `55-bot-block-mode-start.png` | `set-policy-mode.ps1 block`, then the bot starting with `policy=block` and Sentinel shipping enabled: the pre-test check. |
+| 34 | `34-playbook-live-blocked.png` | Slack: the member ID plus diagnosis is refused ("I didn't process that request..."). |
+| 35 | `35-playbook-live-retry-answered.png` | Slack: the same content with the ID spaced out (`H S 7 7 3 0 4 1 2`) is answered. The control was evaded. |
+| 36 | `36-playbook-slack-warnings.png` | The playbook's output: 🚨 warnings from "Microsoft Azure Logic Apps" in the audit channel. There are **four**, which is the duplicate-alert finding. Sentinel URLs blurred. |
+| 37 | `37-playbook-d6-incident.png` | Incident 103 overview: D6, High, Defense Evasion, account entity. |
+| 38 | `38-playbook-d6-incident-graph.png` | Investigation graph for incident 103. |
+| 56 | `56-d6-duplicate-incidents.png` | Incident 107 with the "similar incidents" list: one evasion produced incidents 103, 104, 106 and 107 because D6 runs every 15 minutes over a 1 hour window. Fix: suppress the rule for 1 hour after it fires. |
+
+**Not yet captured:** the Logic App run history showing every action `Succeeded`, and the comment the playbook adds to the incident. Until those exist, the documentation says the comment step is built but its outcome is not shown.
+
+## Excluded on purpose
+
+Some screenshots from the same sessions were left out because they contained account identifiers, tokens or personal data unrelated to the lab. The ones that are included have the Azure header bar cropped (it shows the signed-in account) and subscription or object IDs blurred.

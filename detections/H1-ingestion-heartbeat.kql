@@ -1,0 +1,23 @@
+// H1 - Ingestion heartbeat: ClaudeAudit_CL went quiet during business hours
+// Severity:  Medium
+// Schedule:  every 30m, lookback 2h, suppression 4h  |  Entity mapping: none (this alert is about the pipeline, not a user)
+// Mapping:   ATT&CK TA0005 Defense Evasion (T1562 Impair Defenses: log sources that stop reporting look the same as a disabled sensor)
+//            NIST CSF 2.0 DE.CM-09 (computing hardware, software and their data monitored), DE.AE-02 (events analyzed)
+// Why:       The first live D6 test produced NO incident because the bot was started from a shell with no `az` on PATH.
+//            It kept answering in Slack, wrote events to a local file, and shipped nothing. Every control looked healthy
+//            while the telemetry that proves the control stopped. Detections can only fire on data that arrives, so the
+//            pipeline itself needs an alarm. This rule is that alarm.
+// How:       Count events in the lookback window. If the count is 0 AND it is a weekday inside business hours (ET),
+//            return one row. An empty result means "healthy"; one row means "silent when it should be talking".
+//            Nights and weekends are excluded on purpose: nobody is expected to use the bot then, so silence is normal.
+// Tune:      Keep Window equal to the rule's lookback. Widen BusinessStart/BusinessEnd if the team works later.
+//            A real deployment with 24x7 usage should drop the business-hours filter.
+let Window = 2h;  // keep equal to the rule's lookback
+let TZ = "America/New_York"; let BusinessStart = 9; let BusinessEnd = 18;
+let Recent = toscalar(ClaudeAudit_CL | where TimeGenerated > ago(Window) | count);
+print Now = now(), EventsInWindow = Recent
+| extend LocalNow = datetime_utc_to_local(Now, TZ)
+| where EventsInWindow == 0
+| where hourofday(LocalNow) >= BusinessStart and hourofday(LocalNow) < BusinessEnd
+| where dayofweek(LocalNow) in (1d, 2d, 3d, 4d, 5d)
+| project Now, LocalNow, EventsInWindow

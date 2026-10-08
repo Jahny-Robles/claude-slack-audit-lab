@@ -1,0 +1,129 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 1,
+      "content": {
+        "json": "## Claude Slack Audit Overview\n\nSource: `ClaudeAudit_CL` (audit events from the Slack bot, identifiers already redacted). Pick a time range below. The simulated baseline is from late September, so use 14 or 30 days to include it."
+      },
+      "name": "header"
+    },
+    {
+      "type": 9,
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "parameters": [
+          {
+            "id": "tr-param",
+            "version": "KqlParameterItem/1.0",
+            "name": "TimeRange",
+            "label": "Time range",
+            "type": 4,
+            "isRequired": true,
+            "value": {
+              "durationMs": 1209600000
+            },
+            "typeSettings": {
+              "selectableValues": [
+                {
+                  "durationMs": 86400000
+                },
+                {
+                  "durationMs": 259200000
+                },
+                {
+                  "durationMs": 604800000
+                },
+                {
+                  "durationMs": 1209600000
+                },
+                {
+                  "durationMs": 2592000000
+                }
+              ],
+              "allowCustom": true
+            }
+          }
+        ],
+        "style": "pills",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces"
+      },
+      "name": "parameters"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "ClaudeAudit_CL | summarize Queries = count() by Day = bin(TimeGenerated, 1d), UserName | order by Day asc",
+        "size": 0,
+        "title": "Queries per user per day",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "barchart"
+      },
+      "name": "q-queries-per-user-per-day"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "ClaudeAudit_CL | summarize Events = count() by PolicyAction",
+        "size": 0,
+        "title": "Policy outcomes",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "piechart"
+      },
+      "name": "q-policy-outcomes"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "ClaudeAudit_CL | summarize Total = count(), Redacted = countif(PolicyAction == \"Redacted\"), Blocked = countif(PolicyAction == \"Blocked\") | extend RedactedPct = round(100.0 * Redacted / Total, 1), BlockedPct = round(100.0 * Blocked / Total, 1)",
+        "size": 0,
+        "title": "Share of messages redacted and blocked",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table"
+      },
+      "name": "q-share-of-messages-redacted-and-blocked"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "ClaudeAudit_CL | where PolicyAction == \"Blocked\" | extend Reason = case(PhiLikely == true, \"PHI\", InjectionSuspected == true, \"Prompt injection\", \"Other\") | summarize Blocks = count() by Reason",
+        "size": 0,
+        "title": "Blocks by reason",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "barchart"
+      },
+      "name": "q-blocks-by-reason"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "ClaudeAudit_CL | where array_length(PiiTypes) > 0 | mv-expand PiiType = PiiTypes to typeof(string) | summarize Occurrences = count() by PiiType | order by Occurrences desc",
+        "size": 0,
+        "title": "Identifier types seen",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "barchart"
+      },
+      "name": "q-identifier-types-seen"
+    }
+  ],
+  "isLocked": false,
+  "fallbackResourceIds": [
+    "Azure Monitor"
+  ]
+}
