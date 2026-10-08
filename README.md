@@ -20,6 +20,7 @@ history, and employees can paste member data into it. This lab asks what the SOC
 | Respond | Automation rule + Logic App playbook that warns the team in Slack | [Playbook](#automated-response-logic-app-playbook) |
 | Control cost | Budget alert and a daily ingestion cap, added after a surprise bill | [Cost control](#cost-control-a-siem-you-cant-afford-is-a-siem-that-is-off) |
 | Frame it | DETECT / RESPOND / RECOVER / IMPROVE mapped to NIST CSF 2.0, with gaps | [`docs/nist-csf-write-up.md`](docs/nist-csf-write-up.md) |
+| Operate it | Evidence-first runbook for responding to a cost alert | [`docs/cost-alert-runbook.md`](docs/cost-alert-runbook.md) |
 
 ---
 
@@ -52,6 +53,7 @@ history, and employees can paste member data into it. This lab asks what the SOC
 | Sentinel workbook (importable JSON) | `workbook/claude-slack-audit-overview.workbook.json` |
 | Flip `POLICY_MODE` without hand-editing `.env` | `infra/set-policy-mode.ps1` |
 | Response and framework write-up | `docs/nist-csf-write-up.md` |
+| How to respond to a cost alert (worked example) | `docs/cost-alert-runbook.md` |
 | Offline detection check (no Azure needed) | `sample-output/validate_detections.py` |
 
 **Why the Logs Ingestion API?** The old HTTP Data Collector API (workspace ID + shared key) lost support on
@@ -375,6 +377,13 @@ Controls added so it cannot happen silently again:
 | Budget `credit-guard` (subscription scope) | $10 / month; email alerts at 50%, 80% and forecast 100% | [45](screenshots/45-budget-credit-guard.png) |
 | Workspace daily cap | 0.1 GB/day (ON) | [46](screenshots/46-daily-cap.png) |
 
+**Then the alert fired.** On 8 Oct a *forecast* alert said October would reach **$32.03** against the $10 budget. Instead of
+reacting to the number, I checked: actual October spend was **under $0.01** across two resources
+([57](screenshots/57-cost-analysis-october-actual.png)), and the only billable ingestion in the previous 10 days was
+`ClaudeAudit_CL` at about 0 GB ([58](screenshots/58-usage-billable-ingestion-10d.png)). The forecast was an artifact, so the response
+was "record the evidence, recheck tomorrow" rather than deleting or throttling anything. The order of checks, the decision table
+and the mistakes to avoid are in [`docs/cost-alert-runbook.md`](docs/cost-alert-runbook.md).
+
 *Trade-off:* once the daily cap is reached the workspace stops ingesting until the next reset, which would also stop
 `ClaudeAudit_CL`. In a lab that is acceptable; in production it is a detection gap, and H1 is what would notice it.
 A budget alert is a notification, not a hard stop.
@@ -398,6 +407,7 @@ Each of these failed silently or misleadingly, which is why the setup script now
 | One evasion produced four incidents and four Slack warnings | D6 runs every 15 min with a 1 h lookback, so the same events matched four consecutive runs ([screenshot](screenshots/56-d6-duplicate-incidents.png)) | Suppress the rule for 1 h after an alert; tune a rule before attaching a notifier to it |
 | Playbook showed 0 triggers, 0 actions after "building" it | The designer was never saved, so nothing existed | Save after each block; verify on the Overview page |
 | Azure credit dropped to $20 | Sentinel per-GB ingestion of another lab's Windows logs, not this lab ([screenshot](screenshots/43-cost-by-service.png)) | Check usage by table, add a budget alert and a daily cap |
+| Budget alert forecast $32 against a $10 budget | A forecast made early in the month, while actual spend was under $0.01 and ingestion was about 0 GB ([screenshot](screenshots/57-cost-analysis-october-actual.png)) | Check actual spend, then billable ingestion by table, before acting; see the [cost-alert runbook](docs/cost-alert-runbook.md) |
 | Almost deployed the playbook on a fixed-cost plan | The create form defaulted toward Standard "Workflow Service Plan" ([screenshot](screenshots/47-playbook-hosting-plan.png)) | Choose Consumption for low-volume lab automation |
 
 The common thread: a control plane can report success while nothing works. Configuration state is not operational state.
@@ -418,6 +428,7 @@ The common thread: a control plane can report success while nothing works. Confi
 - [x] Ingestion heartbeat rule H1 (would have caught the failed live test)
 - [x] Playbook (Logic App): D6 incident -> Slack warning + incident comment ([above](#automated-response-logic-app-playbook))
 - [x] Write-up: DETECT -> RESPOND -> RECOVER -> IMPROVEMENT mapped to NIST CSF 2.0 ([`docs/nist-csf-write-up.md`](docs/nist-csf-write-up.md))
+- [ ] Recheck accumulated October cost on 9 Oct to confirm the $32 forecast was an artifact
 - [ ] Apply 1-hour suppression to D6 and re-run the live test to show one incident, one Slack message
 - [ ] Capture Logic App run history (all actions Succeeded) and the playbook's incident comment
 - [ ] Automatic containment: tighten policy or remove the user from the channel when D6 fires

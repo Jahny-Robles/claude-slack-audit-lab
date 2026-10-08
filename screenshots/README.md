@@ -91,6 +91,15 @@ Context: the Azure for Students credit dropped to $20.52. Instead of guessing, I
 | 45 | `45-budget-credit-guard.png` | Budget `credit-guard` at **subscription** scope: $10/month with alerts at 50%, 80% and forecast 100%. (Subscription ID and email are blurred. My first attempt was at billing-account scope, which is the wrong level for a student subscription.) |
 | 46 | `46-daily-cap.png` | Workspace daily cap ON at 0.1 GB/day. Trade-off: when it is reached the workspace stops ingesting for the day, including `ClaudeAudit_CL`. |
 
+### H.2 Responding to a cost alert (8 Oct)
+
+A forecast alert predicted $32.03 for October against a $10 budget. These two screenshots are the evidence used to decide it was not a real cost. The reasoning is in [`docs/cost-alert-runbook.md`](../docs/cost-alert-runbook.md).
+
+| # | Screenshot | What it proves |
+|---|---|---|
+| 57 | `57-cost-analysis-october-actual.png` | Cost analysis for October: total **under $0.01**, only two resources (the Logic App and the Log Analytics workspace), both under a cent. "Budget: None" is only because this view is billing-profile scope. Subscription ID blurred. |
+| 58 | `58-usage-billable-ingestion-10d.png` | `Usage` query, last 10 days, billable only: the sole table is `ClaudeAudit_CL` at 0 GB. No `Event` or `SecurityEvent`, so the Windows-log collection from September is genuinely off. |
+
 ## I. Automated response: Logic App playbook
 
 ### I.1 Build
