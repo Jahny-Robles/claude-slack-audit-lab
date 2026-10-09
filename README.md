@@ -385,9 +385,15 @@ Other things the retest showed:
 - **The model pushed back, the DLP did not.** The answered retry told the user member IDs should not be posted "even spaced out". The model noticed what the regex DLP missed, but a prompt that reaches the model is still a control failure, and D6 is what recorded it.
 - **H1 cannot tell "quiet" from "broken".** It fired at 5:26 PM simply because nobody used the bot for two hours inside business hours. A real fix is a scheduled canary event that always produces a row.
 
-**Verification status.** Confirmed in screenshots: suppression is on, one D6 incident, one Slack warning, one Logic App run with status `Succeeded`.
-A Logic App run is marked Failed if any action fails, so `Succeeded` implies the comment step completed, but **the comment on the incident itself has not been
-screenshotted yet**. Until it is, the docs say the comment step is "run succeeded, comment not yet shown".
+**The third step, proven.** The incident's own activity trail ([69](screenshots/69-retest-playbook-comment-on-incident.png)) shows two entries for incident 110:
+"Incident created from alert" at 3:19:50 PM, then **"Modified by: Playbook - pb-d6-slack-warning" at 3:19:54 PM**, and under *Incident's Comments* a comment authored
+"Comment created from playbook - pb-d6-slack-warning" with the message "Slack warning posted to #all-healthcareai-audit by playb...". So the whole chain is verified:
+incident created, Slack warning posted, and the incident annotated about 4 seconds after it was created, which gives an analyst opening the incident a record that the team was already notified.
+
+![Playbook comment on the incident](screenshots/69-retest-playbook-comment-on-incident.png)
+
+**Verification status.** All three playbook actions are now confirmed with screenshots: the trigger fired, the Slack message was posted, and the comment was added.
+Suppression is on, one D6 incident, one Slack warning, one Logic App run with status `Succeeded`.
 
 ### Cost control: a SIEM you can't afford is a SIEM that is off
 
@@ -466,7 +472,7 @@ The common thread: a control plane can report success while nothing works. Confi
 - [ ] Recheck accumulated October cost on 9 Oct to confirm the $32 forecast was an artifact
 - [x] Apply 1-hour suppression to D6 and re-run the live test: one incident, one Slack message ([above](#automated-response-logic-app-playbook))
 - [x] Capture Logic App run history (all runs Succeeded)
-- [ ] Capture the playbook's comment on the incident (Comments / Activity log) to prove the third step
+- [x] Capture the playbook's comment on the incident to prove the third step ([69](screenshots/69-retest-playbook-comment-on-incident.png))
 - [ ] Add a scheduled canary event so H1 can tell a quiet team from a broken pipeline
 - [ ] Automatic containment: tighten policy or remove the user from the channel when D6 fires
 - [ ] Replay script for events that stayed in `audit_events.jsonl` during a shipping outage

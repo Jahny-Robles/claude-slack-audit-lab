@@ -143,8 +143,9 @@ Same test as I.2, run again after enabling 1-hour suppression on D6. Result: **o
 | 66 | `66-retest-incident-110-overview.png` | Incident 110: High, Defense Evasion, one alert, one entity. The "similar incidents" panel lists yesterday's 107, 106 and 104 because they share the account. |
 | 67 | `67-retest-incident-110-graph.png` | Investigation graph: the account linked to the single D6 alert. |
 | 68 | `68-retest-playbook-run-history.png` | Logic App run history: the four runs from 7 Oct (4:41, 4:57, 5:11, 5:27 PM) and **one** new run on 8 Oct (3:19:53 PM, Succeeded, 1.4 s). "Runs last 24 hours: 1 successful, 0 failed". Subscription ID blurred. |
+| 69 | `69-retest-playbook-comment-on-incident.png` | Incident Overview workbook for incident 110. *Recent activities*: "Incident created from alert" at 3:19:50 PM, then "Modified by Playbook - pb-d6-slack-warning" at 3:19:54 PM. *Incident's Comments*: "Comment created from playbook - pb-d6-slack-warning", message "Slack warning posted to #all-healthcareai-audit by playb...". This proves the playbook's third action. |
 
-**Not yet captured:** the playbook's comment on incident 110 (Comments section or Activity log). The run succeeded, which implies the comment step completed, but the comment itself has not been shown.
+All three playbook actions (trigger, Slack post, incident comment) are now confirmed by screenshots.
 
 ## Excluded on purpose
 

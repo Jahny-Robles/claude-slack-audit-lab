@@ -47,7 +47,7 @@ evasion that changes the *words* as well as the format (D6 needs 2+ shared 6-let
 | RS.MA-02 Incident reports triaged and validated | Incident opens with the blocked message, the retry, the shared words and the user as evidence, so triage does not need a second query. | [20](../screenshots/20-D6-incident-evidence-logs.png), [37](../screenshots/37-playbook-d6-incident.png) | Built |
 | RS.AN-03 Analysis of what happened | Investigation graph plus the evidence row show the sequence block → retry in seconds. | [38](../screenshots/38-playbook-d6-incident-graph.png) | Built |
 | RS.CO-02 Stakeholders notified | **Automation rule + Logic App playbook.** When an incident from the D6 rule is created, Sentinel runs `pb-d6-slack-warning`, which posts a 🚨 message (title, severity, link) to a Slack audit channel. Observed in Slack four times in one test. | Build: [47](../screenshots/47-playbook-hosting-plan.png)-[54](../screenshots/54-playbook-automation-rule.png). Live: [34](../screenshots/34-playbook-live-blocked.png), [35](../screenshots/35-playbook-live-retry-answered.png), [36](../screenshots/36-playbook-slack-warnings.png) | Built |
-| RS.MA-01 Plan executed once an incident is declared | Third playbook action writes a comment back onto the incident so the record shows a notification was sent. | [51](../screenshots/51-playbook-designer-three-actions.png) (designed), [68](../screenshots/68-retest-playbook-run-history.png) (run Succeeded, 1.4 s). The comment on the incident itself is **not yet screenshotted** | Partial: run succeeded, comment not yet shown |
+| RS.MA-01 Plan executed once an incident is declared | Third playbook action writes a comment back onto the incident so the record shows a notification was sent. | [51](../screenshots/51-playbook-designer-three-actions.png) (designed), [68](../screenshots/68-retest-playbook-run-history.png) (run Succeeded, 1.4 s), [69](../screenshots/69-retest-playbook-comment-on-incident.png) (comment authored by the playbook on incident 110, 4 s after creation) | Built |
 | RS.MI-01 Incidents contained | `POLICY_MODE` switch (`infra/set-policy-mode.ps1`): `block` stops PHI and injection from reaching the model. This is containment *for the next message*, not a response to the incident that already happened. | [55](../screenshots/55-bot-block-mode-start.png) | Built (manual) |
 | RS.MI-01 Contain the *user* | Nothing disables the account, removes them from the channel, or tightens their policy automatically. | | Gap |
 
@@ -106,11 +106,9 @@ within the hour will not raise a new alert (the audit log still records it).
 
 ## Gaps, ranked
 
-1. **Show the playbook's comment on the incident.** The run history shows `Succeeded`, so the step ran, but the comment itself
-   (incident Comments or Activity log) is not yet in a screenshot.
-2. **Canary event for H1.** The heartbeat cannot tell a quiet team from a broken pipeline: it fired at 5:26 PM on 8 Oct just because nobody used the bot for 2 hours.
-3. **Automatic containment of the user** (tighten policy for that account, or remove from channel) is not built; response is notify-and-human.
-4. **Replay of locally buffered events** after a shipping outage.
-5. **Real DLP** (Microsoft Purview or equivalent) so evasion by respacing is caught at the control, not only after the fact.
-6. **Dedicated workspace** for this lab so its cost and its detections are not mixed with the other SOC lab's data
+1. **Canary event for H1.** The heartbeat cannot tell a quiet team from a broken pipeline: it fired at 5:26 PM on 8 Oct just because nobody used the bot for 2 hours.
+2. **Automatic containment of the user** (tighten policy for that account, or remove from channel) is not built; response is notify-and-human.
+3. **Replay of locally buffered events** after a shipping outage.
+4. **Real DLP** (Microsoft Purview or equivalent) so evasion by respacing is caught at the control, not only after the fact.
+5. **Dedicated workspace** for this lab so its cost and its detections are not mixed with the other SOC lab's data
    (the 12-rule list in [40](../screenshots/40-twelve-active-rules.png) shows H1 and D1-D6 alongside five rules from the other lab).
