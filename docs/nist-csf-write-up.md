@@ -47,7 +47,7 @@ evasion that changes the *words* as well as the format (D6 needs 2+ shared 6-let
 | RS.MA-02 Incident reports triaged and validated | Incident opens with the blocked message, the retry, the shared words and the user as evidence, so triage does not need a second query. | [20](../screenshots/20-D6-incident-evidence-logs.png), [37](../screenshots/37-playbook-d6-incident.png) | Built |
 | RS.AN-03 Analysis of what happened | Investigation graph plus the evidence row show the sequence block → retry in seconds. | [38](../screenshots/38-playbook-d6-incident-graph.png) | Built |
 | RS.CO-02 Stakeholders notified | **Automation rule + Logic App playbook.** When an incident from the D6 rule is created, Sentinel runs `pb-d6-slack-warning`, which posts a 🚨 message (title, severity, link) to a Slack audit channel. Observed in Slack four times in one test. | Build: [47](../screenshots/47-playbook-hosting-plan.png)-[54](../screenshots/54-playbook-automation-rule.png). Live: [34](../screenshots/34-playbook-live-blocked.png), [35](../screenshots/35-playbook-live-retry-answered.png), [36](../screenshots/36-playbook-slack-warnings.png) | Built |
-| RS.MA-01 Plan executed once an incident is declared | Third playbook action writes a comment back onto the incident so the record shows a notification was sent. | [51](../screenshots/51-playbook-designer-three-actions.png) (designed). Run history and the resulting comment are **not yet screenshotted** | Partial: designed and saved, outcome not yet verified |
+| RS.MA-01 Plan executed once an incident is declared | Third playbook action writes a comment back onto the incident so the record shows a notification was sent. | [51](../screenshots/51-playbook-designer-three-actions.png) (designed), [68](../screenshots/68-retest-playbook-run-history.png) (run Succeeded, 1.4 s). The comment on the incident itself is **not yet screenshotted** | Partial: run succeeded, comment not yet shown |
 | RS.MI-01 Incidents contained | `POLICY_MODE` switch (`infra/set-policy-mode.ps1`): `block` stops PHI and injection from reaching the model. This is containment *for the next message*, not a response to the incident that already happened. | [55](../screenshots/55-bot-block-mode-start.png) | Built (manual) |
 | RS.MI-01 Contain the *user* | Nothing disables the account, removes them from the channel, or tightens their policy automatically. | | Gap |
 
@@ -64,10 +64,14 @@ authorization lives in the Logic App connection, not in the repo. The Sentinel c
 One evasion produced **four incidents and four Slack warnings** ([56](../screenshots/56-d6-duplicate-incidents.png),
 [36](../screenshots/36-playbook-slack-warnings.png)). D6 runs every 15 minutes with a 1-hour lookback, so the same
 block/retry pair stays inside the window for four consecutive runs. Each run created a new alert. That is a faithful
-picture of alert fatigue: a good detection plus an automated notifier turns one event into four pages. The fix is
-**event grouping / suppression** on the rule (stop generating alerts for this entity for 1 hour after one fires), and the
-rule should be tuned before any playbook is attached to it. If that tuning is not yet applied on your copy, expect the
-same fan-out.
+picture of alert fatigue: a good detection plus an automated notifier turns one event into four pages.
+
+**Change made:** event suppression on D6 ("stop running query after alert is generated", 1 hour,
+[59](../screenshots/59-d6-suppression-on.png)). **Result on re-test:** one incident (110), one Slack warning and one playbook run
+that started 3 seconds after the incident ([64](../screenshots/64-retest-incidents-after-one-d6.png),
+[65](../screenshots/65-retest-single-slack-warning.png), [68](../screenshots/68-retest-playbook-run-history.png)).
+The lesson: tune a rule before attaching a notifier to it. The trade-off is that a second, separate evasion by the same person
+within the hour will not raise a new alert (the audit log still records it).
 
 ---
 
@@ -86,7 +90,7 @@ same fan-out.
 
 | CSF 2.0 | Lesson | Change made | Evidence |
 |---|---|---|---|
-| ID.IM-02 Improvements from tests and exercises | The live D6 test showed a working detection could notify four times for one evasion. | Recommended 1-hour suppression on D6; documented in the README Problems table. | [56](../screenshots/56-d6-duplicate-incidents.png) |
+| ID.IM-02 Improvements from tests and exercises | The live D6 test showed a working detection could notify four times for one evasion. | Applied 1-hour suppression on D6 and re-tested: four incidents and four warnings became one and one. | [56](../screenshots/56-d6-duplicate-incidents.png) (before), [64](../screenshots/64-retest-incidents-after-one-d6.png) (after) |
 | ID.IM-02 | A test prompt I wrote ("member HS-7730412 ... diagnosis") was **not blocked**. The scanner's member-ID pattern needs a keyword (`member`/`subscriber`/`policy`/`application`) followed by `id`/`#`/`number`/`no` before the value, and PHI needs an identifier plus a clinical term. | Used the correct phrasing (`member ID HS-7730412 was diagnosed with diabetes ...`). The regex DLP limit is now an explicit Known limit. | [34](../screenshots/34-playbook-live-blocked.png) (the corrected phrasing, blocked) |
 | ID.IM-03 Improvements from operational processes | The first live attempt shipped nothing and nobody noticed. | H1 heartbeat rule, plus a startup check for `Sentinel shipping enabled`. | [16](../screenshots/16-shipping-failure-az-not-on-path.png), [39](../screenshots/39-heartbeat-incidents.png) |
 | ID.IM-03 | **Cost is a security-operations risk.** I burned about $77 of a $100 student credit, almost all of it Sentinel per-GB ingestion of Windows event logs from a *different* lab sharing the workspace (Event 6.97 GB and SecurityEvent 4.35 GB in 45 days; this lab's `ClaudeAudit_CL` was ~0 GB). A SIEM you cannot afford to leave on is a SIEM that is off. | Budget alert `credit-guard` ($10 / month, alerts at 50%, 80% and forecast 100%) and a 0.1 GB/day workspace cap. | [42](../screenshots/42-azure-credits-remaining.png), [43](../screenshots/43-cost-by-service.png), [44](../screenshots/44-usage-by-table-45d.png), [45](../screenshots/45-budget-credit-guard.png), [46](../screenshots/46-daily-cap.png) |
@@ -102,9 +106,9 @@ same fan-out.
 
 ## Gaps, ranked
 
-1. **Verify the playbook's comment action.** Run history should show `Succeeded` for all three actions and the incident should
-   carry the comment. Not yet shown in a screenshot, so this write-up does not claim it.
-2. **Apply suppression to D6** so one evasion is one incident and one Slack message.
+1. **Show the playbook's comment on the incident.** The run history shows `Succeeded`, so the step ran, but the comment itself
+   (incident Comments or Activity log) is not yet in a screenshot.
+2. **Canary event for H1.** The heartbeat cannot tell a quiet team from a broken pipeline: it fired at 5:26 PM on 8 Oct just because nobody used the bot for 2 hours.
 3. **Automatic containment of the user** (tighten policy for that account, or remove from channel) is not built; response is notify-and-human.
 4. **Replay of locally buffered events** after a shipping outage.
 5. **Real DLP** (Microsoft Purview or equivalent) so evasion by respacing is caught at the control, not only after the fact.

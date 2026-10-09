@@ -350,10 +350,44 @@ born: a correct detection plus an automated notifier multiplies one event. The f
 
 ![Four near-identical D6 incidents](screenshots/56-d6-duplicate-incidents.png)
 
-**Verification status, stated honestly.** Confirmed in screenshots: the automation rule fired, the incidents were created,
-and the Slack warnings arrived. **Not yet screenshotted:** the Logic App run history showing all actions `Succeeded`, and the
-playbook's comment on the incident. Those will be added as evidence once captured; until then the comment step is "built,
-outcome not yet shown".
+**The fix, then the re-test (8 Oct).** I turned on suppression for D6: *Stop running query after alert is generated*, **1 hour**
+([59](screenshots/59-d6-suppression-on.png)). The 1 hour matches the rule's lookback, so once D6 fires, the same block/retry events
+have aged out of the window by the time the rule is allowed to run again. Then I repeated the exact same test: restart the bot in block mode
+([60](screenshots/60-retest-bot-block-startup.png), shows `policy=block` and `Sentinel shipping enabled`), a blocked message at 3:01 PM
+([61](screenshots/61-retest-slack-blocked.png)) and the spaced-out retry at 3:08 PM ([62](screenshots/62-retest-slack-retry-answered.png)).
+
+| | Before suppression (7 Oct) | After suppression (8 Oct) |
+|---|---|---|
+| D6 incidents | **4** (103, 104, 106, 107) | **1** (110, created 3:19:50 PM) |
+| Slack warnings | **4** (4:41, 4:57, 5:11, 5:27 PM) | **1** (3:19 PM) |
+| Logic App runs | **4**, all Succeeded | **1**, Succeeded, 1.4 s, started 3:19:53 PM (3 seconds after the incident) |
+| Evidence | [36](screenshots/36-playbook-slack-warnings.png), [56](screenshots/56-d6-duplicate-incidents.png) | [64](screenshots/64-retest-incidents-after-one-d6.png), [65](screenshots/65-retest-single-slack-warning.png), [68](screenshots/68-retest-playbook-run-history.png) |
+
+The incident list taken after the retest also contains an H1 incident created at 5:26 PM, so the quiet period it covers is at least two hours,
+well past the four-run window that previously produced the duplicates. The Logic App run history lists the four runs from 7 Oct and exactly one new run on 8 Oct.
+
+| Before: incidents | After: one D6 incident |
+|---|---|
+| ![Incidents before the retest](screenshots/63-retest-incidents-before.png) | ![One D6 incident after the retest](screenshots/64-retest-incidents-after-one-d6.png) |
+
+| One Slack warning | Run history: four old runs, one new |
+|---|---|
+| ![Single Slack warning](screenshots/65-retest-single-slack-warning.png) | ![Run history](screenshots/68-retest-playbook-run-history.png) |
+
+| Incident 110 | Investigation graph |
+|---|---|
+| ![Incident 110](screenshots/66-retest-incident-110-overview.png) | ![Graph](screenshots/67-retest-incident-110-graph.png) |
+
+The "similar incidents" panel on incident 110 lists yesterday's 107, 106 and 104, because they share the same account entity.
+
+Other things the retest showed:
+- **D1 also fired once** (incident 111, 4:00 PM). It is a separate rule on the same PHI message, not a duplicate. The right reading of "one incident" is one *D6* incident.
+- **The model pushed back, the DLP did not.** The answered retry told the user member IDs should not be posted "even spaced out". The model noticed what the regex DLP missed, but a prompt that reaches the model is still a control failure, and D6 is what recorded it.
+- **H1 cannot tell "quiet" from "broken".** It fired at 5:26 PM simply because nobody used the bot for two hours inside business hours. A real fix is a scheduled canary event that always produces a row.
+
+**Verification status.** Confirmed in screenshots: suppression is on, one D6 incident, one Slack warning, one Logic App run with status `Succeeded`.
+A Logic App run is marked Failed if any action fails, so `Succeeded` implies the comment step completed, but **the comment on the incident itself has not been
+screenshotted yet**. Until it is, the docs say the comment step is "run succeeded, comment not yet shown".
 
 ### Cost control: a SIEM you can't afford is a SIEM that is off
 
@@ -404,7 +438,7 @@ Each of these failed silently or misleadingly, which is why the setup script now
 | Live D6 test produced no incident | Bot was started from an Administrator shell with no `az` on PATH: `Azure CLI not found on path`, events stayed local | Start the bot from a normal shell and check for `Sentinel shipping enabled` and `Shipped N event(s)` ([screenshot](screenshots/16-shipping-failure-az-not-on-path.png)) |
 | Slack bot would not start: `ModuleNotFoundError: No module named 'anthropic'` | Ran `python app\bot.py` outside the virtual environment, so the packages were not on the path | `.\.venv\Scripts\Activate.ps1`, then run the bot; the prompt shows `(.venv)` when active |
 | A PHI test prompt was **allowed** and nothing alerted | The scanner's member-ID pattern needs a keyword (`member`, `subscriber`, `policy`, `application`) then `id`/`#`/`number`/`no` before the value, and PHI needs an identifier **plus** a clinical term. My wording had neither in the right order | Use `member ID HS-7730412 was diagnosed with diabetes ...`. A missed test is a finding about regex DLP, not a bug to hide |
-| One evasion produced four incidents and four Slack warnings | D6 runs every 15 min with a 1 h lookback, so the same events matched four consecutive runs ([screenshot](screenshots/56-d6-duplicate-incidents.png)) | Suppress the rule for 1 h after an alert; tune a rule before attaching a notifier to it |
+| One evasion produced four incidents and four Slack warnings | D6 runs every 15 min with a 1 h lookback, so the same events matched four consecutive runs ([screenshot](screenshots/56-d6-duplicate-incidents.png)) | Suppress the rule for 1 h after an alert; tune a rule before attaching a notifier to it. **Applied and retested: one incident, one Slack message** ([screenshots 59, 64, 65](screenshots/64-retest-incidents-after-one-d6.png)) |
 | Playbook showed 0 triggers, 0 actions after "building" it | The designer was never saved, so nothing existed | Save after each block; verify on the Overview page |
 | Azure credit dropped to $20 | Sentinel per-GB ingestion of another lab's Windows logs, not this lab ([screenshot](screenshots/43-cost-by-service.png)) | Check usage by table, add a budget alert and a daily cap |
 | Budget alert forecast $32 against a $10 budget | A forecast made early in the month, while actual spend was under $0.01 and ingestion was about 0 GB ([screenshot](screenshots/57-cost-analysis-october-actual.png)) | Check actual spend, then billable ingestion by table, before acting; see the [cost-alert runbook](docs/cost-alert-runbook.md) |
@@ -419,7 +453,8 @@ The common thread: a control plane can report success while nothing works. Confi
 - Ingestion runs on a personal `az login` session when the tenant blocks service principals. That ties log shipping to one person's sign-in and it stops when the session expires.
 - D3 treats weekends as out of hours. Run the simulator on a Monday and the D4 burst lands on Sunday, so D3 flags that user too. It is correct by the rule's logic, and worth correlating with D4 in a real SOC.
 - The playbook only *notifies*. It does not contain the user or tighten their policy; a human still decides what happens next.
-- D6 and any attached playbook need suppression tuning, or a single evasion pages the team several times.
+- Suppression is a 1-hour window on D6. A second, genuinely separate evasion by the same person inside that hour is hidden from the alert queue (the audit log still has it), which is the trade-off for not paging four times.
+- H1 fires whenever nobody uses the bot for two hours in business hours, so it cannot distinguish a quiet team from a broken pipeline. A scheduled canary event would fix that.
 - The daily ingestion cap and the budget alert protect the credit but a cap can also silence the audit table. Dedicate a workspace to this lab in anything beyond a student lab.
 - This is a **self-built** agent. It reproduces the audit/detection problem, not Claude Tag's actual internals or log format.
 
@@ -429,8 +464,10 @@ The common thread: a control plane can report success while nothing works. Confi
 - [x] Playbook (Logic App): D6 incident -> Slack warning + incident comment ([above](#automated-response-logic-app-playbook))
 - [x] Write-up: DETECT -> RESPOND -> RECOVER -> IMPROVEMENT mapped to NIST CSF 2.0 ([`docs/nist-csf-write-up.md`](docs/nist-csf-write-up.md))
 - [ ] Recheck accumulated October cost on 9 Oct to confirm the $32 forecast was an artifact
-- [ ] Apply 1-hour suppression to D6 and re-run the live test to show one incident, one Slack message
-- [ ] Capture Logic App run history (all actions Succeeded) and the playbook's incident comment
+- [x] Apply 1-hour suppression to D6 and re-run the live test: one incident, one Slack message ([above](#automated-response-logic-app-playbook))
+- [x] Capture Logic App run history (all runs Succeeded)
+- [ ] Capture the playbook's comment on the incident (Comments / Activity log) to prove the third step
+- [ ] Add a scheduled canary event so H1 can tell a quiet team from a broken pipeline
 - [ ] Automatic containment: tighten policy or remove the user from the channel when D6 fires
 - [ ] Replay script for events that stayed in `audit_events.jsonl` during a shipping outage
 - [ ] Move this lab to its own Sentinel workspace so cost and rules are not shared with the Windows SOC lab

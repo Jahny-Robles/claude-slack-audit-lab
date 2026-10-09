@@ -127,7 +127,24 @@ A forecast alert predicted $32.03 for October against a $10 budget. These two sc
 | 38 | `38-playbook-d6-incident-graph.png` | Investigation graph for incident 103. |
 | 56 | `56-d6-duplicate-incidents.png` | Incident 107 with the "similar incidents" list: one evasion produced incidents 103, 104, 106 and 107 because D6 runs every 15 minutes over a 1 hour window. Fix: suppress the rule for 1 hour after it fires. |
 
-**Not yet captured:** the Logic App run history showing every action `Succeeded`, and the comment the playbook adds to the incident. Until those exist, the documentation says the comment step is built but its outcome is not shown.
+### I.3 Re-test after turning on suppression (8 Oct)
+
+Same test as I.2, run again after enabling 1-hour suppression on D6. Result: **one incident, one Slack warning, one playbook run.**
+
+| # | Screenshot | What it proves |
+|---|---|---|
+| 59 | `59-d6-suppression-on.png` | D6 rule editor, Set rule logic: *Stop running query after alert is generated* **On**, 1 hour. |
+| 60 | `60-retest-bot-block-startup.png` | Bot restarted: `policy=block`, `Sentinel shipping enabled`. (Ingestion endpoint hostname blurred. The old window's earlier log lines are connection refreshes, which are normal.) |
+| 61 | `61-retest-slack-blocked.png` | 3:01 PM: the member ID plus diagnosis is refused. |
+| 62 | `62-retest-slack-retry-answered.png` | 3:08 PM: the spaced-out retry is answered. The model's reply itself says member IDs should not be posted, even spaced out, but the DLP let it through. |
+| 63 | `63-retest-incidents-before.png` | Baseline: highest incident number 109. The 7 Oct duplicates (103, 104, 106, 107) are still listed. |
+| 64 | `64-retest-incidents-after-one-d6.png` | After the retest: exactly one D6 incident (110, 3:19 PM, High), one D1 incident (111, separate rule), and H1 heartbeats (109, 112). The H1 incident at 5:26 PM shows this view was taken at least two hours after the D6 incident. |
+| 65 | `65-retest-single-slack-warning.png` | `#all-healthcareai-audit`: a single 🚨 warning from "Microsoft Azure Logic Apps" at 3:19 PM, directly under today's date divider. Incident link blurred. |
+| 66 | `66-retest-incident-110-overview.png` | Incident 110: High, Defense Evasion, one alert, one entity. The "similar incidents" panel lists yesterday's 107, 106 and 104 because they share the account. |
+| 67 | `67-retest-incident-110-graph.png` | Investigation graph: the account linked to the single D6 alert. |
+| 68 | `68-retest-playbook-run-history.png` | Logic App run history: the four runs from 7 Oct (4:41, 4:57, 5:11, 5:27 PM) and **one** new run on 8 Oct (3:19:53 PM, Succeeded, 1.4 s). "Runs last 24 hours: 1 successful, 0 failed". Subscription ID blurred. |
+
+**Not yet captured:** the playbook's comment on incident 110 (Comments section or Activity log). The run succeeded, which implies the comment step completed, but the comment itself has not been shown.
 
 ## Excluded on purpose
 
