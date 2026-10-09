@@ -9,6 +9,9 @@ is an operational signal about your logging pipeline, the same family of problem
 [NIST write-up](nist-csf-write-up.md)). Analysts who panic and delete the workspace lose their detections. Analysts who
 ignore every alert miss the real one.
 
+It is also useful if you are a student working from a limited credit: see
+[student-credit-management.md](student-credit-management.md) for the lessons and a checklist.
+
 ---
 
 ## The alert

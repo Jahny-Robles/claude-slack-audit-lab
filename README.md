@@ -21,6 +21,7 @@ history, and employees can paste member data into it. This lab asks what the SOC
 | Control cost | Budget alert and a daily ingestion cap, added after a surprise bill | [Cost control](#cost-control-a-siem-you-cant-afford-is-a-siem-that-is-off) |
 | Frame it | DETECT / RESPOND / RECOVER / IMPROVE mapped to NIST CSF 2.0, with gaps | [`docs/nist-csf-write-up.md`](docs/nist-csf-write-up.md) |
 | Operate it | Evidence-first runbook for responding to a cost alert | [`docs/cost-alert-runbook.md`](docs/cost-alert-runbook.md) |
+| Learn from it | Managing a student Azure / cloud credit: lessons and checklist | [`docs/student-credit-management.md`](docs/student-credit-management.md) |
 
 ---
 
@@ -54,6 +55,7 @@ history, and employees can paste member data into it. This lab asks what the SOC
 | Flip `POLICY_MODE` without hand-editing `.env` | `infra/set-policy-mode.ps1` |
 | Response and framework write-up | `docs/nist-csf-write-up.md` |
 | How to respond to a cost alert (worked example) | `docs/cost-alert-runbook.md` |
+| Managing student Azure / cloud credits | `docs/student-credit-management.md` |
 | Offline detection check (no Azure needed) | `sample-output/validate_detections.py` |
 
 **Why the Logs Ingestion API?** The old HTTP Data Collector API (workspace ID + shared key) lost support on
@@ -423,6 +425,10 @@ reacting to the number, I checked: actual October spend was **under $0.01** acro
 `ClaudeAudit_CL` at about 0 GB ([58](screenshots/58-usage-billable-ingestion-10d.png)). The forecast was an artifact, so the response
 was "record the evidence, recheck tomorrow" rather than deleting or throttling anything. The next-day recheck agreed: actual cost still under $0.01 and credits unchanged at $20.52 ([70](screenshots/70-cost-recheck-accumulated-oct9.png), [71](screenshots/71-billing-overview-credits-oct9.png)). The order of checks, the decision table
 and the mistakes to avoid are in [`docs/cost-alert-runbook.md`](docs/cost-alert-runbook.md).
+
+**Student note.** This section is also a worked example for anyone learning on an Azure for Students or other cloud credit:
+what spent my $100, how to find out, and the habits that stop it happening again. The lessons and a checklist are in
+[`docs/student-credit-management.md`](docs/student-credit-management.md).
 
 *Trade-off:* once the daily cap is reached the workspace stops ingesting until the next reset, which would also stop
 `ClaudeAudit_CL`. In a lab that is acceptable; in production it is a detection gap, and H1 is what would notice it.
