@@ -83,7 +83,30 @@ Usage
 
 - Recheck **tomorrow**: Cost analysis → subscription → Oct 1 to today → **Accumulated costs**.
 - If accumulated cost is still under about $1 while the forecast stays above budget, the forecast is wrong. Consider moving the forecast alert threshold, not the budget.
-- If accumulated cost jumps, repeat steps 3 and 4 with that day's data. Status of the next-day recheck: **pending** at the time of writing.
+- If accumulated cost jumps, repeat steps 3 and 4 with that day's data.
+
+**Recheck result (9 Oct, about 19 hours after the alert):**
+
+| Signal | 8 Oct (alert) | 9 Oct (recheck) |
+|---|---|---|
+| Actual October cost | under $0.01 | **still under $0.01** (Logic Apps and Sentinel each under a cent) |
+| Forecast | $32.03 | $26.78 |
+| Credits remaining | $20.52 | **$20.52** (unchanged) |
+| Billing account "current charges" | | $0.00 |
+
+![Subscription cost analysis on 9 Oct: actual under one cent, forecast $26.78](../screenshots/70-cost-recheck-accumulated-oct9.png)
+
+![Billing overview on 9 Oct: current charges $0.00, credits remaining $20.52](../screenshots/71-billing-overview-credits-oct9.png)
+
+**Conclusion: the forecast was an artifact.** Spend did not move, the credit balance did not move, and the forecast itself changed by about $5 in a day
+without any change in real usage, which is the sign of a projection and not a measurement. No action was needed on the resources.
+
+**What the signal that matters looks like:** *credits remaining* is the cleanest check here, because it only changes when money is actually consumed.
+Watch it, not the forecast. If it starts to drop, go back to steps 3 and 4.
+
+**Optional tuning so the alert stops crying wolf:** Budgets -> `credit-guard` -> edit alert conditions. Keep the **actual** alerts (50% and 80%) and either
+remove the forecast alert or raise its threshold well above 100%. A forecast alert is useful on a stable workload and noisy on a lab that just
+changed its ingestion pattern.
 
 ---
 

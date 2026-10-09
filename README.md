@@ -421,7 +421,7 @@ Controls added so it cannot happen silently again:
 reacting to the number, I checked: actual October spend was **under $0.01** across two resources
 ([57](screenshots/57-cost-analysis-october-actual.png)), and the only billable ingestion in the previous 10 days was
 `ClaudeAudit_CL` at about 0 GB ([58](screenshots/58-usage-billable-ingestion-10d.png)). The forecast was an artifact, so the response
-was "record the evidence, recheck tomorrow" rather than deleting or throttling anything. The order of checks, the decision table
+was "record the evidence, recheck tomorrow" rather than deleting or throttling anything. The next-day recheck agreed: actual cost still under $0.01 and credits unchanged at $20.52 ([70](screenshots/70-cost-recheck-accumulated-oct9.png), [71](screenshots/71-billing-overview-credits-oct9.png)). The order of checks, the decision table
 and the mistakes to avoid are in [`docs/cost-alert-runbook.md`](docs/cost-alert-runbook.md).
 
 *Trade-off:* once the daily cap is reached the workspace stops ingesting until the next reset, which would also stop
@@ -469,7 +469,7 @@ The common thread: a control plane can report success while nothing works. Confi
 - [x] Ingestion heartbeat rule H1 (would have caught the failed live test)
 - [x] Playbook (Logic App): D6 incident -> Slack warning + incident comment ([above](#automated-response-logic-app-playbook))
 - [x] Write-up: DETECT -> RESPOND -> RECOVER -> IMPROVEMENT mapped to NIST CSF 2.0 ([`docs/nist-csf-write-up.md`](docs/nist-csf-write-up.md))
-- [ ] Recheck accumulated October cost on 9 Oct to confirm the $32 forecast was an artifact
+- [x] Recheck accumulated October cost on 9 Oct: still under $0.01, credits unchanged at $20.52, so the $32 forecast was an artifact ([runbook](docs/cost-alert-runbook.md))
 - [x] Apply 1-hour suppression to D6 and re-run the live test: one incident, one Slack message ([above](#automated-response-logic-app-playbook))
 - [x] Capture Logic App run history (all runs Succeeded)
 - [x] Capture the playbook's comment on the incident to prove the third step ([69](screenshots/69-retest-playbook-comment-on-incident.png))

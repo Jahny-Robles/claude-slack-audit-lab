@@ -99,6 +99,8 @@ A forecast alert predicted $32.03 for October against a $10 budget. These two sc
 |---|---|---|
 | 57 | `57-cost-analysis-october-actual.png` | Cost analysis for October: total **under $0.01**, only two resources (the Logic App and the Log Analytics workspace), both under a cent. "Budget: None" is only because this view is billing-profile scope. Subscription ID blurred. |
 | 58 | `58-usage-billable-ingestion-10d.png` | `Usage` query, last 10 days, billable only: the sole table is `ClaudeAudit_CL` at 0 GB. No `Event` or `SecurityEvent`, so the Windows-log collection from September is genuinely off. |
+| 70 | `70-cost-recheck-accumulated-oct9.png` | 9 Oct recheck, subscription cost analysis (Accumulated): actual still under $0.01 (Logic Apps and Sentinel each under a cent), forecast now $26.78 (down from $32.03 with no change in usage), budget `credit-guard` $10/month. The forecast moves without spend moving, so it is a projection. |
+| 71 | `71-billing-overview-credits-oct9.png` | Billing account overview the same day: current charges $0.00, top products Logic Apps and Sentinel both $0.00, **credits remaining $20.52** (unchanged since the alert). |
 
 ## I. Automated response: Logic App playbook
 
